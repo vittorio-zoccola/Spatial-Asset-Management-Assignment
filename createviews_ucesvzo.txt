@@ -1,0 +1,126 @@
+-- Latest Parameters View
+CREATE OR REPLACE VIEW ucesvzo.latest_parameters_view AS
+SELECT
+    lp.parameter_id,
+    lp.parameter_type,
+    lp.parameter_name,
+    lp.parameter_subname,
+    lp.parameter_value,
+    lp.parameter_units,
+    lp.date_created
+FROM (
+    SELECT
+        p.parameter_id,
+        p.parameter_type,
+        p.parameter_name,
+        p.parameter_subname,
+        p.parameter_value,
+        p.parameter_units,
+        p.date_created,
+        ROW_NUMBER() OVER (PARTITION BY p.parameter_type, p.parameter_name, p.parameter_subname ORDER BY p.date_created DESC) AS rn
+    FROM
+        ucesvzo.parameters p
+) lp
+WHERE lp.rn = 1;
+
+
+
+
+-- 1) Calculate how much is spent on maintenance cost for the available gates
+CREATE VIEW ucesvzo.maintenance_cost AS
+SELECT
+    g.gate_name,
+    g.availability,
+    lp.parameter_value AS maintenance_cost,
+    lp.parameter_units
+FROM
+    ucesvzo.gates g
+JOIN
+    ucesvzo.latest_parameters_view lp ON LOWER(g.boarding_process) = LOWER(lp.parameter_subname)
+WHERE
+    g.availability = true;
+
+
+
+
+-- 2) Evaluate the terminal net profit
+CREATE VIEW ucesvzo.net_profit AS
+WITH MaintenanceCostPerTerminal AS (
+    SELECT
+        t.terminal_id,
+        t.terminal_name,
+        COALESCE(SUM(lp.parameter_value), 0) AS total_maintenance_cost
+    FROM
+        ucesvzo.terminals t
+    LEFT JOIN
+        ucesvzo.gates g ON t.terminal_id = g.terminal_id
+    LEFT JOIN
+        ucesvzo.latest_parameters_view lp ON LOWER(g.boarding_process) = LOWER(lp.parameter_subname)
+    WHERE
+        g.availability = true
+    GROUP BY
+        t.terminal_id, t.terminal_name
+),
+RevenuePerTerminal AS (
+    SELECT
+        t.terminal_id,
+        t.terminal_name,
+        COALESCE(SUM(lp.parameter_value * ST_Area(t.location)), 0) AS revenue
+    FROM
+        ucesvzo.terminals t
+    JOIN
+        ucesvzo.gates g ON t.terminal_id = g.terminal_id
+    JOIN
+        ucesvzo.latest_parameters_view lp ON LOWER(t.terminal_type) = LOWER(lp.parameter_subname)
+    WHERE
+        lp.parameter_type = 'revenue' AND lp.parameter_name = 'terminals' AND g.availability = true
+    GROUP BY
+        t.terminal_id, t.terminal_name
+)
+SELECT
+    mt.terminal_id,
+    mt.terminal_name,
+    mt.total_maintenance_cost,
+    rt.revenue,
+    (rt.revenue - mt.total_maintenance_cost) AS net_profit
+FROM
+    MaintenanceCostPerTerminal mt
+JOIN
+    RevenuePerTerminal rt ON mt.terminal_id = rt.terminal_id;
+
+
+
+
+-- 3) Calculate the available budget after taxes for the two airports.
+CREATE VIEW ucesvzo.airport_available_budget AS
+SELECT
+    'Victory Airport' AS airport_name,
+    SUM(net_profit) AS total_net_profit,
+    SUM(net_profit * (1 - COALESCE((SELECT parameter_value FROM ucesvzo.latest_parameters_view WHERE parameter_type = 'taxation' AND parameter_name = 'airport' AND parameter_subname = 'Private'), 0) / 100)) AS net_profit_after_tax
+FROM
+    ucesvzo.net_profit
+WHERE
+    terminal_id IN (SELECT terminal_id FROM ucesvzo.terminals WHERE airport_id = 1)
+
+UNION
+
+SELECT
+    'Liberty Airport' AS airport_name,
+    SUM(net_profit) AS total_net_profit,
+    SUM(net_profit * (1 - COALESCE((SELECT parameter_value FROM ucesvzo.latest_parameters_view WHERE parameter_type = 'taxation' AND parameter_name = 'airport' AND parameter_subname = 'Public'), 0) / 100)) AS net_profit_after_tax
+FROM
+    ucesvzo.net_profit
+WHERE
+    terminal_id IN (SELECT terminal_id FROM ucesvzo.terminals WHERE airport_id = 2);
+
+
+
+
+
+
+
+
+
+
+
+
