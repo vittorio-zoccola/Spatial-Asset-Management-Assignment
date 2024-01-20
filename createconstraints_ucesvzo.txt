@@ -1,0 +1,69 @@
+-- Primary Key
+-- Add a primary key constraint to the "airports" table on the "airport_id" column.
+ALTER TABLE ucesvzo.airports
+ADD CONSTRAINT pk_airports PRIMARY KEY (airport_id);
+
+-- UNIQUE Constraint
+-- Add a unique constraint to the "airports" table on the "location" column.
+ALTER TABLE ucesvzo.airports
+ADD CONSTRAINT unique_location1 UNIQUE (location);
+
+
+-- Primary Key
+-- Add a primary key constraint to the "terminals" table on the "terminal_id" column.
+ALTER TABLE ucesvzo.terminals
+ADD CONSTRAINT pk_terminals PRIMARY KEY (terminal_id);
+
+-- Add FOREIGN KEY constraint to “airport_id"
+-- Add a foreign key constraint to the "terminals" table referencing the "airports" table.
+ALTER TABLE ucesvzo.terminals
+ADD CONSTRAINT fk_airport
+    FOREIGN KEY (airport_id)
+    REFERENCES ucesvzo.airports(airport_id);
+
+-- UNIQUE Constraint
+-- Add a unique constraint to the "terminals" table on the "location" column.
+ALTER TABLE ucesvzo.terminals
+ADD CONSTRAINT unique_location2 UNIQUE (location);
+
+-- Primary Key
+-- Add a primary key constraint to the "gates" table on the "gate_id" column.
+ALTER TABLE ucesvzo.gates
+ADD CONSTRAINT pk_gates PRIMARY KEY (gate_id);
+
+-- Add FOREIGN KEY constraint to “terminal_id"
+-- Add a foreign key constraint to the "gates" table referencing the "terminals" table.
+ALTER TABLE ucesvzo.gates
+ADD CONSTRAINT fk_terminal
+    FOREIGN KEY (terminal_id)
+    REFERENCES ucesvzo.terminals(terminal_id);
+
+-- UNIQUE Constraint
+-- Add a unique constraint to the "gates" table on the "location" column.
+ALTER TABLE ucesvzo.gates
+ADD CONSTRAINT unique_location3 UNIQUE (location);
+
+
+-- Primary Key
+-- Add a primary key constraint to the "flight_history" table on the "flight_id" column.
+ALTER TABLE ucesvzo.flight_history
+ADD CONSTRAINT pk_flight_history PRIMARY KEY (flight_id);
+
+-- Add FOREIGN KEY constraint to “gate_id"
+-- Add a foreign key constraint to the "flight_history" table referencing the "gates" table.
+ALTER TABLE ucesvzo.flight_history
+ADD CONSTRAINT fk_gate
+    FOREIGN KEY (gate_id)
+    REFERENCES ucesvzo.gates(gate_id);
+
+
+-- Primary Key
+-- Add a primary key constraint to the “parameters” table on the “parameter_id" column.
+ALTER TABLE ucesvzo.parameters
+ADD CONSTRAINT pk_parameter PRIMARY KEY (parameter_id);
+
+
+-- UNIQUE Constraint
+-- Add a unique constraint to the “parameters” table on the “parameter_type, parameter_name, parameter_subname, date_created” column.
+ALTER TABLE ucesvzo.parameters
+ADD CONSTRAINT unique_parameters UNIQUE (parameter_type, parameter_name, parameter_subname, date_created);
