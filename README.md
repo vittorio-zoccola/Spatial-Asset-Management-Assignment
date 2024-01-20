@@ -4,3 +4,6 @@ This project involves the design and implementation of a spatial database for as
 
 ### Assignment Pyramid PDF
 You can view the detailed spatial pyramid for this assignment by clicking [here](https://github.com/vittorio-zoccola/Spatial-Asset-Management-Assignment/blob/main/Pyramid.pdf).
+### QGIS and 3D FME Visualization
+Check out the QGIS and 3D FME visualization for this assignment [here](https://github.com/vittorio-zoccola/Spatial-Asset-Management-Assignment/blob/main/QGIS%20and%203D%20FME%20visualization.pdf).
+
