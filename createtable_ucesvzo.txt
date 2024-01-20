@@ -1,0 +1,73 @@
+-- The "ucesvzo" schema
+-- Drop the schema if it exists to start fresh.
+DROP SCHEMA IF EXISTS ucesvzo CASCADE;
+
+-- Create a new schema named "ucesvzo."
+CREATE SCHEMA ucesvzo;
+
+
+-- The “airports” table
+-- Create the "airports" table with columns for airport_id and airport_name.
+CREATE TABLE ucesvzo.airports (
+    airport_id serial NOT NULL,                 
+    airport_name character varying(255) NOT NULL,
+    airport_type character varying (20) NOT NULL
+);
+
+-- Add a geometry column named "location" to store spatial data for airports.
+SELECT AddGeometryColumn('ucesvzo', 'airports', 'location', 27700, 'polyhedralsurface', 3);
+
+
+
+-- The “terminals” table
+-- Create the "terminals" table with columns for terminal_id, airport_id, terminal_name, and upgrade_costs.
+CREATE TABLE ucesvzo.terminals (
+    terminal_id serial NOT NULL,                   -- Serially generated terminal ID.
+    airport_id integer NOT NULL,                   -- Foreign key referencing the airport table.
+    terminal_name character varying(255) NOT NULL,  -- Variable-length terminal name.
+    terminal_type character varying(255) NOT NULL
+);
+
+-- Add a geometry column named "location" to store spatial data for terminals.
+SELECT AddGeometryColumn('ucesvzo', 'terminals', 'location', 27700, 'polyhedralsurface', 3);
+
+
+-- The “gates” table
+-- Create the "gates" table with columns for gate_id, terminal_id, gate_name, staff, availability, and dwell_time.
+CREATE TABLE ucesvzo.gates (
+    gate_id serial NOT NULL,                 -- Serially generated gate ID.
+    terminal_id integer NOT NULL,            -- Foreign key referencing the terminals table.
+    gate_name character varying(255) NOT NULL,-- Variable-length gate name.
+    staff double precision NOT NULL,
+    availability boolean NOT NULL,            -- Gate availability status.
+    dwell_time double precision NOT NULL,       -- Dwell time for gates.
+    boarding_process character varying(255) NOT NULL 
+);
+
+-- Add a geometry column named "location" to store spatial data for gates.
+SELECT AddGeometryColumn('ucesvzo', 'gates', 'location', 27700, 'polyhedralsurface', 3);
+
+
+-- The “flight_history” table
+-- Create the "flight_history" table with columns for flight_id, gate_id, destination, passenger_capacity, company_name, and departure_time.
+CREATE TABLE ucesvzo.flight_history (
+    flight_id serial NOT NULL,                  -- Serially generated flight ID.
+    gate_id integer NOT NULL,                   -- Foreign key referencing the gates table.
+    destination character varying(255) NOT NULL,-- Variable-length destination name.
+    passenger_capacity integer NOT NULL,        -- Passenger capacity of the flight.
+    company_name character varying(255) NOT NULL,-- Variable-length company name.
+    departure_time date NOT NULL           -- Departure timestamp of the flight.
+);
+
+
+-- The “parameters” table
+-- Create the "parameters" table with columns for parameter_id, parameter_type, parameter_name, parameter_subname, parameter_value, parameter_units, and date_created.
+CREATE TABLE ucesvzo. parameters (
+    parameter_id serial NOT NULL,                  
+    parameter_type character varying(100) NOT NULL,
+    parameter_name character varying(150) NOT NULL,
+    parameter_subname character varying(150) NOT NULL,
+    parameter_value double precision NOT NULL,
+    parameter_units character varying(100) NOT NULL,
+    date_created date NOT NULL          
+);
