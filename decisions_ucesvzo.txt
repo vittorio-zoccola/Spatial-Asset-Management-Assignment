@@ -1,0 +1,138 @@
+-- 1)Calculate how much is spent on maintenance cost for the available gates
+select * from ucesvzo.maintenance_cost; 
+
+-- 2)Evaluate the terminal net profit
+select * from ucesvzo.net_profit; 
+
+-- 3)Calculate the available budget after taxes for the two airports
+select * from ucesvzo.airport_available_budget; 
+
+-- 4)Find if there are terminals with a dwell time per passenger ratio greater than the maximum indicated
+SELECT
+    t.terminal_id,
+    t.terminal_name,
+    COALESCE(EXTRACT(EPOCH FROM INTERVAL '1 hour' * SUM(g.dwell_time)) / 60, 0) AS total_dwell_time_minutes,
+    SUM(f.passenger_capacity) AS total_passenger_capacity,
+    COALESCE(SUM(g.dwell_time) / SUM(f.passenger_capacity), 0) AS total_ratio
+FROM
+    ucesvzo.terminals t
+LEFT JOIN
+    ucesvzo.gates g ON t.terminal_id = g.terminal_id
+LEFT JOIN
+    ucesvzo.flight_history f ON g.gate_id = f.gate_id
+GROUP BY
+    t.terminal_id, t.terminal_name
+HAVING
+    COALESCE(SUM(g.dwell_time) / SUM(f.passenger_capacity), 0) > (SELECT parameter_value FROM ucesvzo.latest_parameters_view WHERE parameter_type = 'dwell time' AND parameter_name = 'terminals' AND parameter_subname = 'max dwell time per person');
+
+
+-- 5)Calculate how much CO2 is emitted by each airport.
+SELECT
+    a.airport_id,
+    a.airport_name,
+    SUM(lp.parameter_value) AS total_co2_emission
+FROM
+    ucesvzo.airports a
+JOIN
+    ucesvzo.terminals t ON a.airport_id = t.airport_id
+JOIN
+    ucesvzo.gates g ON t.terminal_id = g.terminal_id
+JOIN
+    ucesvzo.flight_history fh ON g.gate_id = fh.gate_id
+JOIN
+    ucesvzo.latest_parameters_view lp ON fh.company_name = lp.parameter_subname AND lp.parameter_type = 'CO2 emissions'
+GROUP BY
+    a.airport_id, a.airport_name
+ORDER BY
+    total_co2_emission DESC;
+
+
+-- 6) Calculate how many solar panels the two airports can purchase with their available budget for investment in solar panels.
+WITH MaintenanceCostPerTerminal AS (
+    SELECT
+        t.terminal_id,
+        t.terminal_name,
+        COALESCE(SUM(lp.parameter_value), 0) AS total_maintenance_cost
+    FROM
+        ucesvzo.terminals t
+    LEFT JOIN
+        ucesvzo.gates g ON t.terminal_id = g.terminal_id
+    LEFT JOIN
+        ucesvzo.latest_parameters_view lp ON LOWER(g.boarding_process) = LOWER(lp.parameter_subname)
+    WHERE
+        g.availability = true
+    GROUP BY
+        t.terminal_id, t.terminal_name
+),
+RevenuePerTerminal AS (
+    SELECT
+        t.terminal_id,
+        t.terminal_name,
+        COALESCE(SUM(lp.parameter_value * ST_Area(t.location)), 0) AS revenue
+    FROM
+        ucesvzo.terminals t
+    JOIN
+        ucesvzo.latest_parameters_view lp ON t.terminal_type = lp.parameter_subname
+                                          AND lp.parameter_type = 'revenue'
+                                          AND lp.parameter_name = 'terminals'
+    GROUP BY
+        t.terminal_id, t.terminal_name
+),
+NetProfitAfterTax AS (
+    SELECT
+        t.airport_id,
+        SUM(rt.revenue - mt.total_maintenance_cost) AS total_net_profit,
+        SUM((rt.revenue - mt.total_maintenance_cost) * (1 - COALESCE((SELECT parameter_value FROM ucesvzo.latest_parameters_view WHERE parameter_type = 'taxation' AND parameter_name = 'airport' AND parameter_subname = CASE WHEN t.airport_id = 1 THEN 'Private' ELSE 'Public' END), 0) / 100)) AS net_profit_after_tax
+    FROM
+        RevenuePerTerminal rt
+    JOIN
+        MaintenanceCostPerTerminal mt ON rt.terminal_id = mt.terminal_id
+    JOIN
+        ucesvzo.terminals t ON rt.terminal_id = t.terminal_id
+    GROUP BY
+        t.airport_id
+),
+SolarPanelData AS (
+    SELECT
+        COALESCE((SELECT parameter_value FROM ucesvzo.latest_parameters_view WHERE parameter_type = 'installation cost' AND parameter_name = 'airport' AND parameter_subname = 'solar panel'), 0) AS solar_panel_cost,
+        COALESCE((SELECT parameter_value FROM ucesvzo.latest_parameters_view WHERE parameter_type = 'investment' AND parameter_name = 'airport' AND parameter_subname = 'available budget invested in solar panel'), 0) AS investment_budget_percentage
+)
+SELECT
+    CASE WHEN airport_id = 1 THEN 'Victory Airport' ELSE 'Liberty Airport' END AS airport_name,
+    total_net_profit,
+    net_profit_after_tax,
+    -- Calcolo del numero di pannelli solari acquistabili
+    FLOOR((net_profit_after_tax * investment_budget_percentage / 100) / solar_panel_cost) AS num_solar_panels
+FROM
+    NetProfitAfterTax, SolarPanelData;
+
+
+-- 7) Evaluate whether the staff of any terminal falls below the "min staff per terminal". 
+SELECT
+    t.terminal_id,
+    t.terminal_name,
+    SUM(g.staff) AS total_staff,
+    CASE
+        WHEN SUM(g.staff) >= (SELECT parameter_value FROM ucesvzo.latest_parameters_view WHERE parameter_type = 'staff' AND parameter_name = 'terminals' AND parameter_subname = 'min staff per terminal') THEN 'Compliant'
+        ELSE 'Not Compliant'
+    END AS staff_compliance
+FROM
+    ucesvzo.terminals t
+JOIN
+    ucesvzo.gates g ON t.terminal_id = g.terminal_id
+GROUP BY
+    t.terminal_id, t.terminal_name;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
